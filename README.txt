@@ -23,6 +23,7 @@ Running:
 OOTB:
 ===
 1. Attached here the pre-built hadoop-aws-wrapper-2.7.1.jar (in case of checking quickly without having to recompile)
-2. In case connection leaks are there, there would not be any corresponding close() call in the log for the specific file. StackTraces can be added
-later to find out from where the leak is created.
+
+2. In case connection leaks are there, there would not be any corresponding close() call in the log for the specific file. StackTraces can be added later to find out from where the leak is created.
+
 3. Attached "stream_access.log" which contains the sample access pattern of "select count(*) from customer where c_customer_id like '%s3%';"
