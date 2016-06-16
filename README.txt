@@ -11,7 +11,7 @@ Running:
 ========
 1. Start hive cli as 'hive --hiveconf fs.s3a.impl="org.apache.hadoop.fs.s3a.wrapper.S3AWrapperFileSystem" '
 
-2. In hive cli, "add jar file:///tmp/hadoop-aws-wrapper-2.7.1.jar;" (in case the jar in home folder).
+2. In hive cli, "add jar file:///tmp/hadoop-aws-wrapper-2.7.1.jar;" (in case the jar in /tmp folder).
 
 4. Run your queries as normal.
 
