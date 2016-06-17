@@ -33,10 +33,10 @@ import java.io.InputStream;
  * Wrapper which logs all read calls in the following format
  * <p>
  * hashCode_<hashCode>, fileName, operation, contentLengthOfFile,
- * positionBeforeRead, positionAfterRead, bytesRead, timeTakenInNanos
+ * positionBeforeRead, positionAfterRead, positionalSeekLoc, bytesRead, timeTakenInNanos
  * <p>
  * This would be logged in normal job log. So one can filter out
- * yarn logs -applicationId appId | grep "S3AWrapperInputStream" | grep "hashCode_" > stream.log
+ * yarn logs -applicationId appId | grep "S3AWrapper" > stream.log
  * <p>
  * This can be parsed and played back later for reproducing the access
  * pattern later (e.g TPC-DS workload or TPC-H workload).
@@ -97,7 +97,7 @@ public class S3AWrapperInputStream extends FSInputStream implements CanSetReadah
     long oldPos = realStream.getPos();
     int read = realStream.read();
     long end = System.nanoTime();
-    log("read", oldPos, read, (end - start));
+    log("read", oldPos, -1, read, (end - start));
     return read;
   }
 
@@ -107,7 +107,7 @@ public class S3AWrapperInputStream extends FSInputStream implements CanSetReadah
     long oldPos = realStream.getPos();
     int read = realStream.read(b, off, len);
     long end = System.nanoTime();
-    log("read", oldPos, read, (end - start));
+    log("read", oldPos, -1, read, (end - start));
     return read;
   }
 
@@ -118,7 +118,7 @@ public class S3AWrapperInputStream extends FSInputStream implements CanSetReadah
     long start = System.nanoTime();
     realStream.close();
     long end = System.nanoTime();
-    log("close", oldPos, 0, (end-start));
+    log("close", oldPos, -1, 0, (end-start));
   }
 
   @Override
@@ -128,10 +128,42 @@ public class S3AWrapperInputStream extends FSInputStream implements CanSetReadah
     long oldPos = realStream.getPos();
     realStream.readFully(position, buffer, offset, length);
     long end = System.nanoTime();
-    log("readFully", oldPos, length, (end - start));
+    log("readFully", oldPos, position, length, (end - start));
   }
 
-  private void log(String op, long oldPos, int read, long timeInNanos) throws
+  @Override
+  public void readFully(long position, byte[] buffer) throws IOException {
+    long start = System.nanoTime();
+    long oldPos = realStream.getPos();
+    realStream.readFully(position, buffer);
+    long end = System.nanoTime();
+    log("readFully", oldPos, position, buffer.length, (end - start));
+  }
+
+  @Override
+  public int read(long position, byte[] buffer, int offset, int length)
+      throws IOException {
+    long start = System.nanoTime();
+    long oldPos = realStream.getPos();
+    int read = realStream.read(position, buffer, offset, length);
+    long end = System.nanoTime();
+    log("read", oldPos, position, read, (end - start));
+    return read;
+  }
+
+  @Override
+  public int read(byte[] b) throws IOException {
+    long start = System.nanoTime();
+    long oldPos = realStream.getPos();
+    int read = realStream.read(b);
+    long end = System.nanoTime();
+    log("read", oldPos, -1, read, (end - start));
+    return read;
+  }
+
+  //Format: hashCode_hashCode, fileName, operation, fileLen, oldPos, currentPosAfterRead,
+  // bytesRead, timeInNanos
+  private void log(String op, long oldPos, long positionalRead, int read, long timeInNanos) throws
       IOException {
     LOG.info("hashCode_" + hashCode()
         + "," + f
@@ -139,6 +171,7 @@ public class S3AWrapperInputStream extends FSInputStream implements CanSetReadah
         + "," + contentLen
         + "," + oldPos
         + "," + realStream.getPos()
+        + "," + positionalRead // only applicable if someone is requesting for specific pos read
         + "," + read
         + "," + timeInNanos
     );

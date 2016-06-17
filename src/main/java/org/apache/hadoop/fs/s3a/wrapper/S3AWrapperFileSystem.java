@@ -56,7 +56,10 @@ public class S3AWrapperFileSystem extends FileSystem {
   @Override
   public FSDataInputStream open(Path f, int bufferSize) throws IOException {
     final FileStatus fileStatus = realFS.getFileStatus(f);
+    long startTime = System.nanoTime();
     FSDataInputStream rs = realFS.open(f, bufferSize);
+    long endTime = System.nanoTime();
+    log(f, "open", fileStatus.getLen(), (endTime - startTime));
     return new FSDataInputStream(new S3AWrapperInputStream(rs.getWrappedStream(), f, fileStatus
         .getLen()));
   }
@@ -64,7 +67,19 @@ public class S3AWrapperFileSystem extends FileSystem {
   @Override
   public FSDataOutputStream create(Path f, FsPermission permission, boolean overwrite,
       int bufferSize, short replication, long blockSize, Progressable progress) throws IOException {
-    return realFS.create(f, permission, overwrite, bufferSize, replication, blockSize, progress);
+    long startTime = System.nanoTime();
+    FSDataOutputStream out = realFS.create(f, permission, overwrite, bufferSize, replication,
+        blockSize, progress);
+    long endTime = System.nanoTime();
+    log(f, "create", 0, (endTime - startTime));
+    return out;
+  }
+
+  @Override
+  public void close() throws IOException {
+    //prints statistics if available
+    LOG.info(realFS.toString());
+    super.close();
   }
 
   @Override
@@ -75,16 +90,19 @@ public class S3AWrapperFileSystem extends FileSystem {
 
   @Override
   public boolean rename(Path src, Path dst) throws IOException {
+    //TODO: log
     return realFS.rename(src, dst);
   }
 
   @Override
   public boolean delete(Path f, boolean recursive) throws IOException {
+    //TODO: log
     return realFS.delete(f, recursive);
   }
 
   @Override
   public FileStatus[] listStatus(Path f) throws FileNotFoundException, IOException {
+    //TODO: log
     return realFS.listStatus(f);
   }
 
@@ -100,12 +118,24 @@ public class S3AWrapperFileSystem extends FileSystem {
 
   @Override
   public boolean mkdirs(Path f, FsPermission permission) throws IOException {
+    //TODO: log
     return realFS.mkdirs(f, permission);
   }
 
   @Override
   public FileStatus getFileStatus(Path f) throws IOException {
     return realFS.getFileStatus(f);
+  }
+
+  //Format: hashCode_hashcode, filePath, operation, fileLen, timeInNanos
+  private void log(Path f, String op, long contentLen,long timeInNanos) throws
+      IOException {
+    LOG.info("hashCode_" + hashCode()
+        + "," + f
+        + "," + op
+        + "," + contentLen
+        + "," + timeInNanos
+    );
   }
 }
 
