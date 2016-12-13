@@ -16,13 +16,17 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.fs.s3a.wrapper;
+package org.apache.hadoop.fs.gcs.wrapper;
 
+import com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem;
 import com.google.common.base.Throwables;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
-import org.apache.hadoop.fs.s3a.S3AFileSystem;
 import org.apache.hadoop.util.Progressable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,14 +38,37 @@ import java.net.URI;
 import java.net.UnknownHostException;
 
 /**
- * S3A Wrapper wchih logs all FS calls for future reference.
+ * GCS Wrapper which logs all FS calls for future reference.
+ * <pre>
+ *   e.g
+ *   ./dist/hive/bin/hive --database rajesh --hiveconf fs.gs.impl=org.apache.hadoop.fs.gcs.wrapper.GCSWrapperFileSystem
+ *   --hiveconf fs.gs.project.id=test-144806 --hiveconf fs.gs.working.dir=/
+ *   --hiveconf fs.gs.auth.service.account.email=test@test-144806.iam.gserviceaccount.com
+ *   --hiveconf fs.gs.auth.service.account.enable=true
+ *   --hiveconf fs.gs.auth.service.account.keyfile=/tmp/test.p12
+ *   --hiveconf hive.metastore.uris=""
+ *   --hiveconf hive.tez.log.level=INFO
+ *   --hiveconf tez.task.log.level=INFO
+ *
+ * hive> set hive.execution.mode=container;
+ *
+ * hive> add jar file:////home/rbalamohan/bigdata-interop/gcs/target/gcs-connector-1.5.6-hadoop2-SNAPSHOT-shaded.jar;
+ * Added [file:////home/rbalamohan/bigdata-interop/gcs/target/gcs-connector-1.5.6-hadoop2-SNAPSHOT-shaded.jar] to class path
+ * Added resources: [file:////home/rbalamohan/bigdata-interop/gcs/target/gcs-connector-1.5.6-hadoop2-SNAPSHOT-shaded.jar]
+ *
+ * hive> add jar file:///tmp/hadoop-aws-wrapper-2.7.0.jar;
+ * Added [file:///tmp/hadoop-aws-wrapper-2.7.0.jar] to class path
+ * Added resources: [file:///tmp/hadoop-aws-wrapper-2.7.0.jar]
+ *
+ * hive> select count(*) c from inventory group by inv_item_sk order by c limit 10;
+ *
+ * </pre>
  */
-public class S3AWrapperFileSystem extends FileSystem {
+public class GCSWrapperFileSystem extends FileSystem {
 
-  private static final Logger LOG = LoggerFactory.getLogger(S3AWrapperFileSystem.class);
-  private final S3AFileSystem realFS;
+  private static final Logger LOG = LoggerFactory.getLogger(GCSWrapperFileSystem.class);
+  private final GoogleHadoopFileSystem realFS;
   private final String address;
-
   private static final String PRINT_STACK_TRACE = "fs.wrapper.stacktrace";
   private boolean printStackTrace;
 
@@ -50,9 +77,9 @@ public class S3AWrapperFileSystem extends FileSystem {
     return realFS.getUri();
   }
 
-  public S3AWrapperFileSystem() {
+  public GCSWrapperFileSystem() {
     super();
-    this.realFS = new S3AFileSystem();
+    this.realFS = new GoogleHadoopFileSystem();
     String localAddress = null;
     try {
       localAddress = InetAddress.getLocalHost().getHostAddress();
@@ -78,8 +105,8 @@ public class S3AWrapperFileSystem extends FileSystem {
     FSDataInputStream rs = realFS.open(f, bufferSize);
     long endTime = System.nanoTime();
     log(f, "open", fileStatus.getLen(), (endTime - startTime));
-    return new FSDataInputStream(new S3AWrapperInputStream(rs.getWrappedStream(), f, fileStatus
-        .getLen()));
+    return new FSDataInputStream(new GCSWrapperInputStream(rs, f, fileStatus.getLen(), address,
+        printStackTrace));
   }
 
   @Override
@@ -147,13 +174,14 @@ public class S3AWrapperFileSystem extends FileSystem {
   @Override
   public FileStatus getFileStatus(Path f) throws IOException {
     if (printStackTrace) {
-      LOG.info("getFileStatus path=" + f + ", " + Throwables.getStackTraceAsString(new Exception()));
+      LOG.info(
+          "getFileStatus path=" + f + ", " + Throwables.getStackTraceAsString(new Exception()));
     }
     return realFS.getFileStatus(f);
   }
 
-  //Format: hashCode_hashcode, address, filePath, operation, fileLen, timeInNanos
-  private void log(Path f, String op, long contentLen,long timeInNanos) throws
+  //Format: hashCode_hashcode, machine, filePath, operation, fileLen, timeInNanos
+  private void log(Path f, String op, long contentLen, long timeInNanos) throws
       IOException {
     LOG.info("hashCode_" + hashCode()
         + "," + address
