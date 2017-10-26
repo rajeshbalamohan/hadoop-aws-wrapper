@@ -43,7 +43,7 @@ import java.net.URI;
 import java.net.UnknownHostException;
 
 /**
- * S3A Wrapper wchih logs all FS calls for future reference.
+ * WASB Wrapper which logs all FS calls for future reference.
  */
 public class WASBWrapperFileSystem extends FileSystem {
 

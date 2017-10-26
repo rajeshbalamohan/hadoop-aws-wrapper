@@ -18,18 +18,14 @@
 
 package org.apache.hadoop.fs.wasb.wrapper;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import org.apache.hadoop.fs.BufferedFSInputStream;
 import org.apache.hadoop.fs.CanSetReadahead;
-import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSInputStream;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.s3a.S3AInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -40,7 +36,7 @@ import java.io.InputStream;
  * positionBeforeRead, positionAfterRead, positionalSeekLoc, bytesRead, timeTakenInNanos
  * <p>
  * This would be logged in normal job log. So one can filter out
- * yarn logs -applicationId appId | grep "S3AWrapper" > stream.log
+ * yarn logs -applicationId appId | grep "WASBWrapper" > stream.log
  * <p>
  * This can be parsed and played back later for reproducing the access
  * pattern later (e.g TPC-DS workload or TPC-H workload).
