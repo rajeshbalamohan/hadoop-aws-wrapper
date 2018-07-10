@@ -66,6 +66,8 @@ import java.net.UnknownHostException;
  */
 public class GCSWrapperFileSystem extends FileSystem {
 
+  // TODO Change all of these to have a single base which adds all the tracing.
+
   private static final Logger LOG = LoggerFactory.getLogger(GCSWrapperFileSystem.class);
   private final GoogleHadoopFileSystem realFS;
   private final String address;
@@ -124,7 +126,7 @@ public class GCSWrapperFileSystem extends FileSystem {
   public void close() throws IOException {
     //prints statistics if available
     LOG.info(realFS.toString());
-    super.close();
+    realFS.close();
   }
 
   @Override
@@ -136,13 +138,21 @@ public class GCSWrapperFileSystem extends FileSystem {
   @Override
   public boolean rename(Path src, Path dst) throws IOException {
     LOG.info("rename src=" + src + " to dest=" + dst);
-    return realFS.rename(src, dst);
+    long startTime = System.nanoTime();
+    boolean res = rename(src, dst);
+    long endTime = System.nanoTime();
+    log((src.toString() + "___" + dst.toString()), "rename", -1, endTime-startTime);
+    return res;
   }
 
   @Override
   public boolean delete(Path f, boolean recursive) throws IOException {
     LOG.info("delete src=" + f + " recursive=" + recursive);
-    return realFS.delete(f, recursive);
+    long startTime = System.nanoTime();
+    boolean res = realFS.delete(f, recursive);
+    long endTime = System.nanoTime();
+    log(f, "delete" + (recursive ? "_recursive" : "_nonrecursive"), -1, endTime-startTime);
+    return res;
   }
 
   @Override
@@ -150,7 +160,11 @@ public class GCSWrapperFileSystem extends FileSystem {
     if (printStackTrace) {
       LOG.info("listStatus path=" + f + ", " + Throwables.getStackTraceAsString(new Exception()));
     }
-    return realFS.listStatus(f);
+    long startTime = System.nanoTime();
+    FileStatus[] res = realFS.listStatus(f);
+    long endTime = System.nanoTime();
+    log(f, "listStatus", (res == null ? -1 : res.length), (endTime - startTime));
+    return res;
   }
 
   @Override
@@ -168,7 +182,11 @@ public class GCSWrapperFileSystem extends FileSystem {
     if (printStackTrace) {
       LOG.info("mkdirs path=" + f + ", " + Throwables.getStackTraceAsString(new Exception()));
     }
-    return realFS.mkdirs(f, permission);
+    long startTime = System.nanoTime();
+    boolean res = realFS.mkdirs(f, permission);
+    long endTime = System.nanoTime();
+    log(f, "mkdirs", -1, endTime-startTime);
+    return res;
   }
 
   @Override
@@ -177,7 +195,11 @@ public class GCSWrapperFileSystem extends FileSystem {
       LOG.info(
           "getFileStatus path=" + f + ", " + Throwables.getStackTraceAsString(new Exception()));
     }
-    return realFS.getFileStatus(f);
+    long startTime = System.nanoTime();
+    FileStatus fileStatus = realFS.getFileStatus(f);
+    long endTime = System.nanoTime();
+    log(f, "getFileStatus", (fileStatus == null ? -1 : fileStatus.getLen()), endTime-startTime);
+    return fileStatus;
   }
 
   //Format: hashCode_hashcode, machine, filePath, operation, fileLen, timeInNanos
@@ -186,6 +208,18 @@ public class GCSWrapperFileSystem extends FileSystem {
     LOG.info("hashCode_" + hashCode()
         + "," + address
         + "," + f
+        + "," + op
+        + "," + contentLen
+        + "," + timeInNanos
+    );
+  }
+
+  //Format: hashCode_hashcode, machine, pathString, operation, fileLen, timeInNanos
+  private void log(String pathString, String op, long contentLen, long timeInNanos) throws
+      IOException {
+    LOG.info("hashCode_" + hashCode()
+        + "," + address
+        + "," + pathString
         + "," + op
         + "," + contentLen
         + "," + timeInNanos

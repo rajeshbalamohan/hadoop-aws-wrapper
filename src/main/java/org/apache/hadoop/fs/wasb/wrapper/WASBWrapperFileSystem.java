@@ -103,7 +103,7 @@ public class WASBWrapperFileSystem extends FileSystem {
   @Override public RemoteIterator<LocatedFileStatus> listLocatedStatus(Path f)
       throws FileNotFoundException, IOException {
     LOG.info("Issued listLocaedStatus for " + f);
-    return super.listLocatedStatus(f);
+    return realFS.listLocatedStatus(f);
   }
 
   @Override
@@ -137,7 +137,7 @@ public class WASBWrapperFileSystem extends FileSystem {
     //prints statistics if available
     LOG.info("Closing fileSystem : " + realFS.toString());
     LOG.info("Stats fileSystem : " + realFS.getAllStatistics());
-    super.close();
+    realFS.close();
   }
 
   @Override

@@ -16,11 +16,11 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.fs.gcs.wrapper;
+package org.apache.hadoop.fs.hdfs.wrapper;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import org.apache.hadoop.fs.CanSetReadahead;
-import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSInputStream;
 import org.apache.hadoop.fs.Path;
 import org.slf4j.Logger;
@@ -29,30 +29,52 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 
-public class GCSWrapperInputStream extends FSInputStream implements CanSetReadahead {
-  private static final Logger LOG = LoggerFactory.getLogger(GCSWrapperInputStream.class);
+/**
+ * Wrapper which logs all read calls in the following format
+ * <p>
+ * hashCode_<hashCode>, fileName, operation, contentLengthOfFile,
+ * positionBeforeRead, positionAfterRead, positionalSeekLoc, bytesRead, timeTakenInNanos
+ * <p>
+ * This would be logged in normal job log. So one can filter out
+ * yarn logs -applicationId appId | grep "S3AWrapper" > stream.log
+ * <p>
+ * This can be parsed and played back later for reproducing the access
+ * pattern later (e.g TPC-DS workload or TPC-H workload).
+ *
+ * Note: readFully is from DataInputStream and is marked final. So
+ * it is hard to get that detail here. However, readFully internally
+ * makes read calls which are captured. Only issue is, it is possible
+ * that AWS is returning them in chunks (e.g trying to do readFully of 4 MB
+ * might be done via 2 or 3 read operations).
+ *
+ * later point, hashCode can be used to find out any means of connection leaks.
+ * StackTrace is too much to add now.
+ */
+public class HdfsWrapperInputStream extends FSInputStream implements CanSetReadahead {
+  private static final Logger LOG = LoggerFactory.getLogger(HdfsWrapperInputStream.class);
 
-  private final FSDataInputStream realStream;
+  private final FSInputStream realStream;
 
   private final Path f;
   private final long contentLen;
   private final String address;
   private final boolean printStackTrace;
 
-  public GCSWrapperInputStream(InputStream in, Path f, long contenLen) {
-    this(in, f, contenLen, null, false);
+  public HdfsWrapperInputStream(InputStream in, Path f, long contentLen) {
+    this(in, f, contentLen, null, false);
   }
 
-  public GCSWrapperInputStream(InputStream in, Path f, long contenLen,
-      String address, boolean printStackTrace) {
-    this.realStream = (FSDataInputStream) in;
+  public HdfsWrapperInputStream(InputStream in, Path f, long contentLen,
+                               String address, boolean printStackTrace) {
+//    Preconditions.checkArgument(in instanceof S3AInputStream,
+//        "Not an instance of S3AInputStream; "
+//            + in.getClass().toString());
+    this.realStream =  (FSInputStream)in;
+    LOG.info(("RealStream class: " + realStream.getClass()));
     this.f = f;
-    this.contentLen = contenLen;
+    this.contentLen = contentLen;
     this.address = address;
     this.printStackTrace = printStackTrace;
-    if (printStackTrace) {
-      LOG.info("Creating new input stream.." + Throwables.getStackTraceAsString(new Exception()));
-    }
   }
 
   @Override
@@ -64,30 +86,18 @@ public class GCSWrapperInputStream extends FSInputStream implements CanSetReadah
 
   @Override
   public void seek(long pos) throws IOException {
-    if (printStackTrace) {
-      LOG.info("seek" + f + ", " + Throwables.getStackTraceAsString(new Exception()));
-    }
-    long start = System.nanoTime();
     realStream.seek(pos);
-    long end = System.nanoTime();
-    log("seek", pos, -1, -1, (end - start));
   }
 
   @Override
   public long getPos() throws IOException {
-    long start = System.nanoTime();
-    long pos = realStream.getPos();
-    long end = System.nanoTime();
-    log("getPos", -1, -1, -1, (end - start));
-    return pos;
+    return realStream.getPos();
   }
 
-  @Override public boolean seekToNewSource(long l) throws IOException {
-    long start = System.nanoTime();
-    boolean res = realStream.seekToNewSource(l);
-    long end = System.nanoTime();
-    log("seekToNewSource", -1, -1, -1, (end - start));
-    return res;
+  @Override
+  public boolean seekToNewSource(long targetPos) throws IOException {
+    boolean seek = seekToNewSource(targetPos);
+    return seek;
   }
 
   @Override
@@ -117,15 +127,12 @@ public class GCSWrapperInputStream extends FSInputStream implements CanSetReadah
     long start = System.nanoTime();
     realStream.close();
     long end = System.nanoTime();
-    log("close", oldPos, -1, -1, (end - start));
+    log("close", oldPos, -1, -1, (end-start));
   }
 
   @Override
   public void readFully(long position, byte[] buffer, int offset, int length)
       throws IOException {
-    if (printStackTrace) {
-      LOG.info("readFully1 " + f + ", " + Throwables.getStackTraceAsString(new Exception()));
-    }
     long start = System.nanoTime();
     long oldPos = realStream.getPos();
     realStream.readFully(position, buffer, offset, length);
@@ -135,9 +142,6 @@ public class GCSWrapperInputStream extends FSInputStream implements CanSetReadah
 
   @Override
   public void readFully(long position, byte[] buffer) throws IOException {
-    if (printStackTrace) {
-      LOG.info("readFully2 " + f + ", " + Throwables.getStackTraceAsString(new Exception()));
-    }
     long start = System.nanoTime();
     long oldPos = realStream.getPos();
     realStream.readFully(position, buffer);
@@ -166,7 +170,7 @@ public class GCSWrapperInputStream extends FSInputStream implements CanSetReadah
     return read;
   }
 
-  //Format: hashCode_hashCode, fileName, operation, fileLen, oldPos, currentPosAfterRead,
+  //Format: hashCode_hashCode, address, fileName, operation, fileLen, oldPos, currentPosAfterRead,
   // bytesRead, timeInNanos
   private void log(String op, long oldPos, long positionalRead, int read, long timeInNanos) throws
       IOException {
@@ -176,25 +180,17 @@ public class GCSWrapperInputStream extends FSInputStream implements CanSetReadah
         msg = Throwables.getStackTraceAsString(new Exception());
       }
     }
-    long realPos = -100000;
-    if (realStream != null) {
-      try {
-        realPos = realStream.getPos();
-      } catch (Throwable t) {
-        //in case it is already closed, it would throw exception. ignore
-      }
-    }
     LOG.info("hashCode_" + hashCode()
         + "," + address
         + "," + f
         + "," + op
         + "," + contentLen
         + "," + oldPos
-        + "," + realPos
+        + "," + realStream.getPos()
         + "," + positionalRead // only applicable if someone is requesting for specific pos read
         + "," + read
         + "," + timeInNanos
-        + (msg.equals("") ? "" : "," + msg)
+        + "," + msg
     );
   }
 }
