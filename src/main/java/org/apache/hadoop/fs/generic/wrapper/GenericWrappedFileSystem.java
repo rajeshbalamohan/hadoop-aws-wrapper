@@ -136,6 +136,7 @@ public abstract class GenericWrappedFileSystem extends FileSystem {
     //prints statistics if available
     LOG.info(realFS.toString());
     realFS.close();
+    super.close();
   }
 
   @Override
