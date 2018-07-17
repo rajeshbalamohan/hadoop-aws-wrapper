@@ -36,6 +36,10 @@ import java.net.UnknownHostException;
 /**
  * Hdfs Wrapper wchih logs all FS calls for future reference.
  */
+
+// TODO: Leaving this as is for now. Hive has this strange behaviour where it initializes
+// a DistributedFileSystem instance directly, so extending the GenericWrappedFS will cause this to
+// fail when used with Hive.
 public class HdfsWrapperFileSystem extends DistributedFileSystem {
 
   private static final Logger LOG = LoggerFactory.getLogger(HdfsWrapperFileSystem.class);

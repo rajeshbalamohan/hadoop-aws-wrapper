@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.fs.gcs.wrapper;
+package org.apache.hadoop.fs.generic.wrapper;
 
 import com.google.common.base.Throwables;
 import org.apache.hadoop.fs.CanSetReadahead;
@@ -29,8 +29,29 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 
-public class GCSWrapperInputStream extends FSInputStream implements CanSetReadahead {
-  private static final Logger LOG = LoggerFactory.getLogger(GCSWrapperInputStream.class);
+/**
+ * Wrapper which logs all read calls in the following format
+ * <p>
+ * hashCode_<hashCode>, fileName, operation, contentLengthOfFile,
+ * positionBeforeRead, positionAfterRead, positionalSeekLoc, bytesRead, timeTakenInNanos
+ * <p>
+ * This would be logged in normal job log. So one can filter out
+ * yarn logs -applicationId appId | grep "S3AWrapper" > stream.log
+ * <p>
+ * This can be parsed and played back later for reproducing the access
+ * pattern later (e.g TPC-DS workload or TPC-H workload).
+ *
+ * Note: readFully is from DataInputStream and is marked final. So
+ * it is hard to get that detail here. However, readFully internally
+ * makes read calls which are captured. Only issue is, it is possible
+ * that AWS is returning them in chunks (e.g trying to do readFully of 4 MB
+ * might be done via 2 or 3 read operations).
+ *
+ * later point, hashCode can be used to find out any means of connection leaks.
+ * StackTrace is too much to add now.
+ */
+public class GenericWrappedInputStream extends FSInputStream implements CanSetReadahead {
+  private static final Logger LOG = LoggerFactory.getLogger(GenericWrappedInputStream.class);
 
   private final FSDataInputStream realStream;
 
@@ -39,11 +60,11 @@ public class GCSWrapperInputStream extends FSInputStream implements CanSetReadah
   private final String address;
   private final boolean printStackTrace;
 
-  public GCSWrapperInputStream(InputStream in, Path f, long contenLen) {
+  public GenericWrappedInputStream(InputStream in, Path f, long contenLen) {
     this(in, f, contenLen, null, false);
   }
 
-  public GCSWrapperInputStream(InputStream in, Path f, long contenLen,
+  public GenericWrappedInputStream(InputStream in, Path f, long contenLen,
       String address, boolean printStackTrace) {
     this.realStream = (FSDataInputStream) in;
     this.f = f;
@@ -59,6 +80,7 @@ public class GCSWrapperInputStream extends FSInputStream implements CanSetReadah
   public void setReadahead(Long readahead)
       throws IOException, UnsupportedOperationException {
     //TODO: ignore for now. Add it later.
+    // TODO: See which filesystem implementations support this, and add to the relevant ones.
     // realStream.setReadahead(readahead);
   }
 
@@ -96,7 +118,7 @@ public class GCSWrapperInputStream extends FSInputStream implements CanSetReadah
     long oldPos = realStream.getPos();
     int read = realStream.read();
     long end = System.nanoTime();
-    log("read", oldPos, -1, read, (end - start));
+    log("read1", oldPos, -1, read, (end - start));
     return read;
   }
 
@@ -106,7 +128,7 @@ public class GCSWrapperInputStream extends FSInputStream implements CanSetReadah
     long oldPos = realStream.getPos();
     int read = realStream.read(b, off, len);
     long end = System.nanoTime();
-    log("read", oldPos, -1, read, (end - start));
+    log("read2", oldPos, -1, read, (end - start));
     return read;
   }
 
@@ -130,7 +152,7 @@ public class GCSWrapperInputStream extends FSInputStream implements CanSetReadah
     long oldPos = realStream.getPos();
     realStream.readFully(position, buffer, offset, length);
     long end = System.nanoTime();
-    log("readFully", oldPos, position, length, (end - start));
+    log("readFully1", oldPos, position, length, (end - start));
   }
 
   @Override
@@ -142,7 +164,7 @@ public class GCSWrapperInputStream extends FSInputStream implements CanSetReadah
     long oldPos = realStream.getPos();
     realStream.readFully(position, buffer);
     long end = System.nanoTime();
-    log("readFully", oldPos, position, buffer.length, (end - start));
+    log("readFully2", oldPos, position, buffer.length, (end - start));
   }
 
   @Override
@@ -152,7 +174,7 @@ public class GCSWrapperInputStream extends FSInputStream implements CanSetReadah
     long oldPos = realStream.getPos();
     int read = realStream.read(position, buffer, offset, length);
     long end = System.nanoTime();
-    log("read", oldPos, position, read, (end - start));
+    log("read3", oldPos, position, read, (end - start));
     return read;
   }
 
@@ -162,7 +184,7 @@ public class GCSWrapperInputStream extends FSInputStream implements CanSetReadah
     long oldPos = realStream.getPos();
     int read = realStream.read(b);
     long end = System.nanoTime();
-    log("read", oldPos, -1, read, (end - start));
+    log("read4", oldPos, -1, read, (end - start));
     return read;
   }
 
