@@ -92,7 +92,7 @@ public class GenericWrappedInputStream extends FSInputStream implements CanSetRe
     long start = System.nanoTime();
     realStream.seek(pos);
     long end = System.nanoTime();
-    log("seek", pos, -1, -1, (end - start));
+    log("seek", pos, -1, 0, (end - start));
   }
 
   @Override
@@ -100,7 +100,7 @@ public class GenericWrappedInputStream extends FSInputStream implements CanSetRe
     long start = System.nanoTime();
     long pos = realStream.getPos();
     long end = System.nanoTime();
-    log("getPos", -1, -1, -1, (end - start));
+    log("getPos", -1, -1, 0, (end - start));
     return pos;
   }
 
@@ -108,7 +108,7 @@ public class GenericWrappedInputStream extends FSInputStream implements CanSetRe
     long start = System.nanoTime();
     boolean res = realStream.seekToNewSource(l);
     long end = System.nanoTime();
-    log("seekToNewSource", -1, -1, -1, (end - start));
+    log("seekToNewSource", -1, -1, 0, (end - start));
     return res;
   }
 
@@ -139,7 +139,7 @@ public class GenericWrappedInputStream extends FSInputStream implements CanSetRe
     long start = System.nanoTime();
     realStream.close();
     long end = System.nanoTime();
-    log("close", oldPos, -1, -1, (end - start));
+    log("close", oldPos, -1, 0, (end - start));
   }
 
   @Override
