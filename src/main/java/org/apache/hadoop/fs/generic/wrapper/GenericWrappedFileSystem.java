@@ -71,7 +71,9 @@ public abstract class GenericWrappedFileSystem extends FileSystem {
   private final FileSystem realFS;
   private final String address;
   private static final String PRINT_STACK_TRACE = "fs.wrapper.stacktrace";
+  private static final String ENABLE_LOGGING = "fs.wrapper.enable.logging";
   private boolean printStackTrace;
+  private boolean enableLogging;
 
   @Override
   public URI getUri() {
@@ -89,9 +91,14 @@ public abstract class GenericWrappedFileSystem extends FileSystem {
     this.address = localAddress;
   }
 
+  public void setEnableLogging(boolean enableLogging) {
+    this.enableLogging = enableLogging;
+  }
+
   @Override
   public void initialize(URI name, Configuration conf) throws IOException {
     printStackTrace = conf.getBoolean(PRINT_STACK_TRACE, false);
+    enableLogging = conf.getBoolean(ENABLE_LOGGING, true);
     if (printStackTrace) {
       LOG.info("initialize.." + Throwables.getStackTraceAsString(new Exception()));
     }
@@ -107,7 +114,7 @@ public abstract class GenericWrappedFileSystem extends FileSystem {
     long endTime = System.nanoTime();
     log(f, "open", fileStatus.getLen(), (endTime - startTime));
     return new FSDataInputStream(new GenericWrappedInputStream(rs, f, fileStatus.getLen(), address,
-        printStackTrace));
+        printStackTrace, enableLogging));
   }
 
   @Override public RemoteIterator<LocatedFileStatus> listLocatedStatus(Path f)
@@ -116,7 +123,21 @@ public abstract class GenericWrappedFileSystem extends FileSystem {
     long startTime = System.nanoTime();
     RemoteIterator<LocatedFileStatus> result = realFS.listLocatedStatus(f);
     long endTime = System.nanoTime();
-    log(f, "listLocatedStatus", -1, (endTime - startTime));
+    log(f, "listLocatedStatus", 0, (endTime - startTime));
+    return result;
+  }
+
+  // TODO: globStatus is another call. Look for additional calls which may be made.
+
+  // TODO RemoteIterator call timing may not be correct if it is actually Remote.
+  @Override
+  public RemoteIterator<LocatedFileStatus> listFiles(
+      final Path f, final boolean recursive)
+      throws FileNotFoundException, IOException {
+    long startTime = System.nanoTime();
+    RemoteIterator<LocatedFileStatus> result = listFiles(f, recursive);
+    long endTime = System.nanoTime();
+    log(f, "listFiles", 0, (endTime - startTime));
     return result;
   }
 
@@ -219,6 +240,9 @@ public abstract class GenericWrappedFileSystem extends FileSystem {
   //Format: hashCode_hashcode, machine, filePath, operation, fileLen, timeInNanos
   private void log(Path f, String op, long contentLen, long timeInNanos) throws
       IOException {
+    if (!enableLogging) {
+      return;
+    }
     LOG.info("hashCode_" + hashCode()
         + "," + address
         + "," + f
@@ -231,6 +255,9 @@ public abstract class GenericWrappedFileSystem extends FileSystem {
   //Format: hashCode_hashcode, machine, pathString, operation, fileLen, timeInNanos
   private void log(String pathString, String op, long contentLen, long timeInNanos) throws
       IOException {
+    if (!enableLogging) {
+      return;
+    }
     LOG.info("hashCode_" + hashCode()
         + "," + address
         + "," + pathString

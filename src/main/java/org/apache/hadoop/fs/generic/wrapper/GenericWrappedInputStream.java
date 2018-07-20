@@ -59,18 +59,20 @@ public class GenericWrappedInputStream extends FSInputStream implements CanSetRe
   private final long contentLen;
   private final String address;
   private final boolean printStackTrace;
+  private final boolean enableLogging;
 
-  public GenericWrappedInputStream(InputStream in, Path f, long contenLen) {
-    this(in, f, contenLen, null, false);
+  public GenericWrappedInputStream(InputStream in, Path f, long contenLen, boolean enableLogging) {
+    this(in, f, contenLen, null, false, enableLogging);
   }
 
   public GenericWrappedInputStream(InputStream in, Path f, long contenLen,
-      String address, boolean printStackTrace) {
+      String address, boolean printStackTrace, boolean enableLogging) {
     this.realStream = (FSDataInputStream) in;
     this.f = f;
     this.contentLen = contenLen;
     this.address = address;
     this.printStackTrace = printStackTrace;
+    this.enableLogging = enableLogging;
     if (printStackTrace) {
       LOG.info("Creating new input stream.." + Throwables.getStackTraceAsString(new Exception()));
     }
@@ -192,6 +194,9 @@ public class GenericWrappedInputStream extends FSInputStream implements CanSetRe
   // bytesRead, timeInNanos
   private void log(String op, long oldPos, long positionalRead, int read, long timeInNanos) throws
       IOException {
+    if (!enableLogging) {
+      return;
+    }
     String msg = "";
     if (read == 0 || read == 1) {
       if (printStackTrace) {
