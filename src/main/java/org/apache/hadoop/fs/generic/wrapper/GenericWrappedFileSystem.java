@@ -135,7 +135,7 @@ public abstract class GenericWrappedFileSystem extends FileSystem {
       final Path f, final boolean recursive)
       throws FileNotFoundException, IOException {
     long startTime = System.nanoTime();
-    RemoteIterator<LocatedFileStatus> result = listFiles(f, recursive);
+    RemoteIterator<LocatedFileStatus> result = realFS.listFiles(f, recursive);
     long endTime = System.nanoTime();
     log(f, "listFiles", 0, (endTime - startTime));
     return result;
