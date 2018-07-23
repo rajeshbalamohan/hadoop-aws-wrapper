@@ -17,13 +17,13 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <artifactId>hadoop-aws-wrapper</artifactId>
+  <artifactId>hadoop-hcfs-wrapper</artifactId>
   <groupId>org.apache.hadoop</groupId>
   <version>0.0.1-SNAPSHOT</version>
 
-  <name>Apache Hadoop Amazon Web Services support</name>
+  <name>Apache Hadoop Wrappers for various HCFS implementations</name>
   <description>
-    Same as s3a except that it attempts to fix the InputStream issues (lazy seek and readFully issues)
+    Wrapper FileSystems to track performance of various Hadoop FileSystem method invocations.
   </description>
   <packaging>jar</packaging>
 
