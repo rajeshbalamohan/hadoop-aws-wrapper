@@ -118,4 +118,21 @@ public class Data {
   public void setMsg(String msg) {
     this.msg = msg;
   }
+
+  @Override
+  public String toString() {
+    return "Data{" +
+        "hashCode='" + hashCode + '\'' +
+        ", address='" + address + '\'' +
+        ", fileName='" + fileName + '\'' +
+        ", operation='" + operation + '\'' +
+        ", contentLen=" + contentLen +
+        ", oldPos=" + oldPos +
+        ", realPos=" + realPos +
+        ", positionalRead=" + positionalRead +
+        ", read=" + read +
+        ", timeInNanos=" + timeInNanos +
+        ", msg='" + msg + '\'' +
+        '}';
+  }
 }

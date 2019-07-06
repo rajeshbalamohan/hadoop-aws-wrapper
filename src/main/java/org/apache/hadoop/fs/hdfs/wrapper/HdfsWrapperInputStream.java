@@ -16,14 +16,13 @@
  * limitations under the License.
  */
 
-package org.apache.hadoop.fs.s3a.wrapper;
+package org.apache.hadoop.fs.hdfs.wrapper;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import org.apache.hadoop.fs.CanSetReadahead;
 import org.apache.hadoop.fs.FSInputStream;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.s3a.S3AInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,26 +50,27 @@ import java.io.InputStream;
  * later point, hashCode can be used to find out any means of connection leaks.
  * StackTrace is too much to add now.
  */
-public class S3AWrapperInputStream extends FSInputStream implements CanSetReadahead {
-  private static final Logger LOG = LoggerFactory.getLogger(S3AWrapperInputStream.class);
+public class HdfsWrapperInputStream extends FSInputStream implements CanSetReadahead {
+  private static final Logger LOG = LoggerFactory.getLogger(HdfsWrapperInputStream.class);
 
-  private final S3AInputStream realStream;
+  private final FSInputStream realStream;
 
   private final Path f;
   private final long contentLen;
   private final String address;
   private final boolean printStackTrace;
 
-  public S3AWrapperInputStream(InputStream in, Path f, long contentLen) {
+  public HdfsWrapperInputStream(InputStream in, Path f, long contentLen) {
     this(in, f, contentLen, null, false);
   }
 
-  public S3AWrapperInputStream(InputStream in, Path f, long contentLen,
-      String address, boolean printStackTrace) {
-    Preconditions.checkArgument(in instanceof S3AInputStream,
-        "Not an instance of S3AInputStream; "
-            + in.getClass().toString());
-    this.realStream = (S3AInputStream) in;
+  public HdfsWrapperInputStream(InputStream in, Path f, long contentLen,
+                               String address, boolean printStackTrace) {
+//    Preconditions.checkArgument(in instanceof S3AInputStream,
+//        "Not an instance of S3AInputStream; "
+//            + in.getClass().toString());
+    this.realStream =  (FSInputStream)in;
+    LOG.info(("RealStream class: " + realStream.getClass()));
     this.f = f;
     this.contentLen = contentLen;
     this.address = address;
